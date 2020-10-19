@@ -1,0 +1,94 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: build-and-push-yamls
+spec:
+  workspaces:
+  - name: shared-workspace
+  params:
+  - name: deployment-name
+    type: string
+    description: name of the deployment to be patched
+  - name: git-url
+    type: string
+    description: url of the git repo for the code of deployment
+  - name: git-revision
+    type: string
+    description: revision to be used from repo of the code for deployment
+    default: "test"
+  - name: IMAGE
+    type: string
+    description: image to be build from the code
+  tasks:
+  ####### git clone
+  - name: fetch-repository
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared-workspace
+    params:
+    - name: url
+      value: $(params.git-url)
+    - name: subdirectory
+      value: ""
+    - name: deleteExisting
+      value: "true"
+    - name: revision
+      value: $(params.git-revision)
+######## oc build
+  - name: s2i
+    taskRef:
+      name: s2i-java-8
+    workspaces:
+      - name: source
+        workspace: shared-workspace
+    params:
+      - name: PATH_CONTEXT
+        value: paltry-celery
+      - name: IMAGE
+        value: $(params.IMAGE)
+    runAfter:
+    - fetch-repository
+####### edit yaml
+  - name: update-deployment-yaml
+    taskRef:
+      name: update-deployment-image
+    workspaces:
+      - name: source
+        workspace: shared-workspace
+    params:
+    # - name: registry
+    #   value: image-registry.openshift-image-registry.svc:5000
+    # - name: namespace
+    #   value: test-dev
+    # - name: app
+    #   value: test
+    # - name: sha
+    #   value: 
+    - name: IMAGE
+      value: $(params.IMAGE)
+    - name: file
+      value: environment/dev/deployment.yml
+    runAfter:
+    - s2i-java-8
+####### Push GitHub
+  - name: update github  manifest
+    taskRef:
+      name: git-cli
+    workspaces:
+      - name: source
+        workspace: shared-workspace
+    params:
+    - name: GIT_USER_NAME
+      value: carlossagala
+    - name: GIT_SCRIPT
+      value: |
+        git add ./environments
+        git commit -m "intento 1"
+        git push origin master
+    runAfter:
+    - update-deployment-image
+
+

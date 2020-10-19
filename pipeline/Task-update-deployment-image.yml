@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: update-deployment-image
+spec:
+  params:
+    # - name: registry
+    #   type: string
+    #   description: ""
+    #   default: ""
+    # - name: namespace
+    #   type: string
+    #   description: ""
+    #   default: "example-dev"
+    # - name: app
+    #   type: string
+    #   description: ""
+    #   default: "test"
+    # - name: sha
+    #   type: string
+    #   description: ""
+    #   default: "y927984982374"
+    - name: IMAGE
+      type: string
+    - name: file
+      type: string
+      default: environment/dev/deployment.yml
+  steps:
+    - name: update
+      image: registry.redhat.io/ubi8/ubi:latest
+      command:
+        - sed
+      args:
+        - "-i"
+        - "s/image:.*$/image: $(params.IMAGE)/g"
+        - "$(params.file)" 
